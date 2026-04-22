@@ -89,7 +89,7 @@ hr{border:none; border-top:1px solid #b99759; margin:14px 0}
 <body>
 <div id="login" class="login">
   <h1>Штабная панель варгейма</h1>
-  <p class="sub">Гражданская война в России, 1918 год. Один HTML-файл: администратор, игроки, ресурсы, армии, покупка, движение, захваты, журнал и сохранения.</p>
+  <p class="sub">Штабная панель для настольного варгейма: управление странами, городами, ресурсами, армиями, передвижением и ходами кампании.</p>
   <div class="panel">
     <h3>Вход</h3>
     <div class="row">
@@ -101,7 +101,7 @@ hr{border:none; border-top:1px solid #b99759; margin:14px 0}
       <div class="field hidden" id="playerCountryBox"><label>Страна игрока</label><select id="playerCountry"></select></div>
       <button onclick="login()">Войти</button>
     </div>
-    <p class="small">Защита в одном HTML-файле предназначена для настольной игры, а не для настоящей сетевой безопасности.</p>
+    <p class="small">«В гражданской войне линия фронта проходит не только по карте, но и через города, семьи и память страны».</p>
   </div>
 </div>
 
@@ -563,38 +563,38 @@ function renderJournal(){
 }
 
 function renderNetwork(){
-  const hostBadge = net.isHost ? `<span class="badge">Хост: ${esc(net.hostId||"создаётся...")}</span>` : "";
   const peers = net.connections.map((c,i)=>`<li>${esc(c.peer)} ${c.open?"— подключён":"— соединение"}</li>`).join("") || "<li>Нет подключений</li>";
-  const hostPanel = session.mode==="admin" ? `
+  const hostPanel = `
     <div class="card">
       <h3>Администратор-хост</h3>
-      <p class="small">Нажми «Стать хостом», скопируй ID комнаты и отправь игрокам. Игроки подключаются по этому ID.</p>
+      <p class="small">Администратор НЕ подключается по ID. Он только нажимает «Стать хостом», копирует ID и отправляет его игрокам.</p>
       <div class="actions">
         <button class="good" onclick="startHost()">Стать хостом</button>
+        <button onclick="copyHostId()">Скопировать ID</button>
         <button onclick="broadcastState()">Отправить состояние всем</button>
         <button class="secondary" onclick="stopNetwork()">Отключить P2P</button>
       </div>
-      <div class="field"><label>ID комнаты / хоста</label><input readonly value="${esc(net.hostId||"")}" onclick="this.select()"></div>
-      <p class="notice">Администратор — главный хост. Когда игрок делает действие, его состояние отправляется хосту, а хост рассылает обновление всем подключённым.</p>
-    </div>` : "";
+      <div class="field"><label>ID комнаты / хоста</label><input id="hostIdOut" readonly value="${esc(net.hostId||"")}" onclick="this.select()"></div>
+      <p class="notice">Если в строке «Роль сети» написано «Клиент», значит админ случайно подключился как игрок. Нажми «Отключить P2P», затем снова «Стать хостом» и отправь игрокам новый ID.</p>
+    </div>`;
   const playerPanel = `
     <div class="card">
       <h3>Подключение игрока</h3>
-      <p class="small">Вставь ID комнаты, который дал администратор. После подключения ты получишь текущее состояние партии.</p>
+      <p class="small">Вставь ID комнаты, который дал администратор. Перед подключением админ должен видеть статус «Хост запущен».</p>
       <div class="actions">
-        <div class="field"><label>ID хоста</label><input id="p2pHostId" placeholder="например: 1918-abc123" value="${esc(net.hostId||"")}"></div>
+        <div class="field"><label>ID хоста</label><input id="p2pHostId" placeholder="например: wargame1918-akgsfv" value="${esc(net.hostId||"")}"></div>
         <button class="good" onclick="connectToHost()">Подключиться</button>
         <button class="secondary" onclick="requestHostState()">Запросить состояние</button>
         <button class="secondary" onclick="stopNetwork()">Отключить P2P</button>
       </div>
+      <p class="notice">Ошибка <b>peer-unavailable</b> означает, что такого активного хоста сейчас нет: ID введён неверно, хост отключён, или админ случайно сбросил хост.</p>
     </div>`;
   return `<div class="panel"><h2>P2P-сеть</h2>
     <p class="notice">Для P2P используется WebRTC через PeerJS. Нужен интернет для первичного соединения через сигнальный сервер; сама передача данных идёт между браузерами. Это игровая синхронизация, не банковская защита.</p>
     <div class="kpi"><div><span>Статус</span><b>${esc(net.status)}</b></div><div><span>Роль сети</span><b>${net.isHost?"Хост":"Клиент"}</b></div><div><span>Подключений</span><b>${net.connections.length}</b></div><div><span>Последняя синхронизация</span><b>${esc(net.lastSync||"—")}</b></div></div>
-    ${hostBadge}
-    <div class="grid">${hostPanel}${playerPanel}</div>
+    <div class="grid">${session.mode==="admin" ? hostPanel : playerPanel}</div>
     <h3>Подключённые участники</h3><ul>${peers}</ul>
-    <p class="small">Совет: сначала админ открывает файл и становится хостом, потом игроки открывают тот же HTML-файл, входят за свои страны и подключаются по ID.</p>
+    <p class="small">Правильная схема: админ нажимает «Стать хостом» → копирует ID → игроки вставляют этот ID и нажимают «Подключиться».</p>
   </div>`;
 }
 
@@ -631,6 +631,12 @@ function addEdge(){
   log(`Добавлена связь: ${a} — ${b}${$("edgeRail").checked?" (ЖД)":""}`,"admin"); saveLocal(); renderAll();
 }
 
+function copyHostId(){
+  const id = net.hostId || ($("hostIdOut")?.value || "");
+  if(!id){ alert("Сначала нажми «Стать хостом», чтобы появился ID."); return; }
+  try{ navigator.clipboard.writeText(id); alert("ID скопирован: " + id); }
+  catch(e){ const el=$("hostIdOut"); if(el){el.select(); document.execCommand("copy");} alert("ID скопирован или выделен: " + id); }
+}
 function networkAvailable(){ return typeof Peer !== "undefined"; }
 function setNetStatus(s){ net.status=s; net.lastSync=new Date().toLocaleTimeString("ru-RU"); try{ renderAll(); }catch(e){} }
 function startHost(){
@@ -645,16 +651,30 @@ function startHost(){
   renderAll();
 }
 function connectToHost(){
+  if(session.mode==="admin"){ alert("Администратор не должен подключаться как игрок. Нажми «Стать хостом» и отправь ID игрокам."); return; }
   if(!networkAvailable()){ alert("PeerJS не загрузился. Проверь интернет и открой файл заново."); return; }
   const id=($("p2pHostId")?.value||"").trim(); if(!id){ alert("Введи ID хоста"); return; }
+  if(net.peer && net.peer.id===id){ alert("Нельзя подключаться к самому себе. Администратор должен быть хостом, игрок — клиентом."); return; }
   stopNetwork(false);
   net.isHost=false; net.hostId=id; net.connections=[]; net.status="Подключение...";
   net.peer = new Peer();
   net.peer.on("open", ()=>{
     const conn=net.peer.connect(id,{reliable:true});
     setupConnection(conn,false);
+    setTimeout(()=>{
+      if(!conn.open && net.status==="Подключение..."){
+        setNetStatus("Не удалось подключиться. Проверь ID и что админ сейчас хост.");
+      }
+    }, 6000);
   });
-  net.peer.on("error", err=>{ console.error(err); alert("Ошибка P2P: "+err.type); setNetStatus("Ошибка: "+err.type); });
+  net.peer.on("error", err=>{ 
+    console.error(err); 
+    const msg = err.type==="peer-unavailable" 
+      ? "Ошибка P2P: peer-unavailable. Активный хост с таким ID не найден. Попроси админа нажать «Стать хостом» и скопируй новый ID."
+      : "Ошибка P2P: "+err.type;
+    alert(msg); 
+    setNetStatus("Ошибка: "+err.type); 
+  });
   renderAll();
 }
 function setupConnection(conn, incoming){
